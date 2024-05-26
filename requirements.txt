@@ -1,3 +1,4 @@
-arrow
+streamlit
 tushare
-fire
+arrow
+pandas
