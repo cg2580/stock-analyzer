@@ -1,18 +1,22 @@
 from time import sleep
 
 import arrow
+import pandas as pd
 import streamlit as st
 import tushare as ts
 
 st.title('StocK Analyzer')
 
-# hour_to_filter = st.slider('hour', 0, 23, 17)  # min: 0h, max: 23h, default: 17h
-
-# st.title('请输入筛选条件 :blue[筛选条件] :sunglasses:')
 st.header('请输入 :blue[筛选条件] :sunglasses:')
 
 option_exchange = st.selectbox("exchange", ["SSE", "SZSE"])
 option_market = st.selectbox("market", ["主板", "创业板"])
+# options_industries_values = pd.read_csv('ts_codes_industries.csv', index_col=0)
+option_industries = st.multiselect("行业", pd.read_csv('ts_codes_industries.csv', index_col=0), 
+                                    placeholder="可多选，为空时等于全选")
+# 获取全部的代码
+df_ts_codes = pd.read_csv('ts_codes.csv')  
+print(df_ts_codes)
 
 if st.button("Submit", type="primary"):
     start_date = arrow.now().shift(days=-30).format("YYYYMMDD")
@@ -20,20 +24,31 @@ if st.button("Submit", type="primary"):
     exchange = option_exchange
     market = option_market
     print(f"数据取样区间：{start_date} - {end_date}, 交易所：{exchange}, 板块：{market}")
+    # 筛选出本次要分析的代码
+    df_ts_codes_filtered = df_ts_codes[(df_ts_codes['list_status'] == 'L') & (df_ts_codes['market'] == f'{option_market}')] 
+    if option_exchange:
+        df_ts_codes_filtered = df_ts_codes_filtered[df_ts_codes_filtered['exchange'] == f'{option_exchange}']
+    if option_industries:
+        df_ts_codes_filtered_temp_list = []
+        for index, option_industry in enumerate(option_industries):
+            st.write(option_industry)
+            df_ts_codes_filtered_temp_list.append[df_ts_codes_filtered[df_ts_codes_filtered['industry'] == f'{option_industry}']]
+        df_ts_codes_filtered_out = None
+        for df_ts_codes_filtered_temp in df_ts_codes_filtered_temp_list:
+            print(df_ts_codes_filtered_temp)
+            pass # ToDo
+    ts_codes = df_ts_codes_filtered['ts_code']  # Series
+    ts_codes_total = len(ts_codes)
+    # 符合条件的代码存入result
     result = []
-    ts_codes_list = []
-    if exchange == 'SZSE' and market == '创业板':
-        with open('ts_codes/TS-CODES-SZSE-SECOND-BOARD', 'r') as file:
-            ts_codes_list = [line.strip() for line in file]
-    if exchange == 'SZSE' and market == '主板':
-        with open('ts_codes/TS-CODES-SZSE-MAIN-BOARD', 'r') as file:
-            ts_codes_list = [line.strip() for line in file]
-    if exchange == 'SSE' and market == '主板':
-        with open('ts_codes/TS-CODES-SSE-MAIN-BOARD', 'r') as file:
-            ts_codes_list = [line.strip() for line in file]
+    # 进度条展示
+    st_progress_bar = st.progress(0.00, text=None)
     # 遍历股票代码，筛选符合条件的股票代码
-    for ts_code in ts_codes_list:
-        sleep(0.2)
+    for index, ts_code in enumerate(ts_codes): 
+        # percent_complete = 
+        st_progress_bar.progress(value=(index+1)/ts_codes_total, 
+                                 text=f'正在分析: {index+1}/{ts_codes_total}, 代码: {ts_code}')
+        sleep(0.1)
         # 获取指定代码的股票日线行情信息，接口文档地址 https://tushare.pro/document/2?doc_id=27
         df = ts.pro_api().daily(ts_code=ts_code, start_date=start_date, end_date=end_date,
                                 fields='ts_code,trade_date,close,pre_close,vol')
@@ -69,9 +84,15 @@ if st.button("Submit", type="primary"):
         # if is_vol_up_a and is_vol_up_b and is_vol_up_c:  # 连续三天放量
         # 连续两天放量，T日5日线在10日线上方，T-1日5日线在10日线下方
         # if is_vol_up_a and is_vol_up_b and is_vol_up_c and is_t_minus_0_ma5_gt_ma10 and is_t_minus_1_ma5_lt_ma10:
-        # 只看是否放量
+        # 只看是否连续放量
         if is_vol_up_a and is_vol_up_b and is_vol_up_c:
             # print(df.loc[0, "ts_code"])
-            st.write(df.loc[0, "ts_code"])
-            result.append(df.loc[0, "ts_code"])
-    st.write(result)
+            ts_code_match = df.loc[0, "ts_code"]
+            ts_code_match_num = ts_code_match.split('.')[0]
+            ts_code_match_exchange = ts_code_match.split('.')[1]
+            # https://xueqiu.com/S/SH600433
+            ts_code_match_markown_text = f"[{ts_code_match}](https://xueqiu.com/S/{ts_code_match_exchange}{ts_code_match_num}) 符合条件"
+            st.markdown(ts_code_match_markown_text)
+            result.append(ts_code_match)
+    st_progress_bar.progress(value=1.00, 
+                            text=f'全部分析完成！ {index+1}/{ts_codes_total}, 代码: {ts_code}')
