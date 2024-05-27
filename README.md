@@ -1,7 +1,7 @@
 # stock-analyzer
 
 ## 安装依赖
-pip install streamlit tushare arrow pandas -i "https://mirrors.aliyun.com/pypi/simple"  --upgrade
+pip install streamlit tushare arrow pandas jupyter -i "https://mirrors.aliyun.com/pypi/simple"  --upgrade
 
 ## 配置Token（.streamlit/secrets.toml）
 ```

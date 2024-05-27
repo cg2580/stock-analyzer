@@ -26,28 +26,30 @@ if st.button("Submit", type="primary"):
     print(f"数据取样区间：{start_date} - {end_date}, 交易所：{exchange}, 板块：{market}")
     # 筛选出本次要分析的代码
     df_ts_codes_filtered = df_ts_codes[(df_ts_codes['list_status'] == 'L') & (df_ts_codes['market'] == f'{option_market}')] 
+    # 筛选交易所
     if option_exchange:
         df_ts_codes_filtered = df_ts_codes_filtered[df_ts_codes_filtered['exchange'] == f'{option_exchange}']
+    # 筛选行业
     if option_industries:
         df_ts_codes_filtered_temp_list = []
         for index, option_industry in enumerate(option_industries):
-            st.write(option_industry)
-            df_ts_codes_filtered_temp_list.append[df_ts_codes_filtered[df_ts_codes_filtered['industry'] == f'{option_industry}']]
-        df_ts_codes_filtered_out = None
-        for df_ts_codes_filtered_temp in df_ts_codes_filtered_temp_list:
-            print(df_ts_codes_filtered_temp)
-            pass # ToDo
-    ts_codes = df_ts_codes_filtered['ts_code']  # Series
-    ts_codes_total = len(ts_codes)
+            df_ts_codes_filtered_temp_list.append(df_ts_codes_filtered[df_ts_codes_filtered['industry'] == f'{option_industry}'])
+        df_ts_codes_filtered = pd.concat(df_ts_codes_filtered_temp_list, axis=0).drop_duplicates(ignore_index=True) 
+    # ts_codes = df_ts_codes_filtered['ts_code']  # Series
+    ts_codes_total = df_ts_codes_filtered.shape[0]
     # 符合条件的代码存入result
     result = []
     # 进度条展示
     st_progress_bar = st.progress(0.00, text=None)
     # 遍历股票代码，筛选符合条件的股票代码
-    for index, ts_code in enumerate(ts_codes): 
-        # percent_complete = 
-        st_progress_bar.progress(value=(index+1)/ts_codes_total, 
-                                 text=f'正在分析: {index+1}/{ts_codes_total}, 代码: {ts_code}')
+    # for index, ts_code in enumerate(ts_codes): 
+    for index, ts_code_row in df_ts_codes_filtered.reset_index(drop=True).iterrows(): 
+        print(f'index:{index},ts_codes_total:{ts_codes_total}')
+        ts_code = ts_code_row['ts_code']
+        name = ts_code_row['name']
+        industry = ts_code_row['industry']
+        st_progress_bar.progress(value=(index+1)/ts_codes_total,
+                                 text=f'正在分析: {index+1}/{ts_codes_total}, 代码: {ts_code}, 名称：{name}, 行业：{industry}')
         sleep(0.1)
         # 获取指定代码的股票日线行情信息，接口文档地址 https://tushare.pro/document/2?doc_id=27
         df = ts.pro_api().daily(ts_code=ts_code, start_date=start_date, end_date=end_date,
@@ -91,8 +93,10 @@ if st.button("Submit", type="primary"):
             ts_code_match_num = ts_code_match.split('.')[0]
             ts_code_match_exchange = ts_code_match.split('.')[1]
             # https://xueqiu.com/S/SH600433
-            ts_code_match_markown_text = f"[{ts_code_match}](https://xueqiu.com/S/{ts_code_match_exchange}{ts_code_match_num}) 符合条件"
+            ts_code_match_markown_text = f"代码:[{ts_code_match}](https://xueqiu.com/S/{ts_code_match_exchange}{ts_code_match_num}) 名称：{name}, 行业：{industry} 符合条件"
             st.markdown(ts_code_match_markown_text)
             result.append(ts_code_match)
     st_progress_bar.progress(value=1.00, 
-                            text=f'全部分析完成！ {index+1}/{ts_codes_total}, 代码: {ts_code}')
+                            text=f'全部分析完成！ {index+1}/{ts_codes_total}, 代码: {ts_code}, 名称：{name}, 行业：{industry}')
+    df_ts_codes_filtered_result = df_ts_codes_filtered[df_ts_codes_filtered['ts_code'].isin(result)]
+    st.dataframe(df_ts_codes_filtered_result)
